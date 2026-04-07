@@ -1,33 +1,25 @@
-// ============================================================
-// Smart UPI Routing Optimizer — Flutter App Entry Point
-// ============================================================
-//
-// This is the main entry point for the Flutter application.
-//
-// Responsibilities:
-// - Initializes the Flutter framework
-// - Sets up Provider state management
-// - Configures the app theme (Material 3, dark mode support)
-// - Defines the navigation routes:
-//     /         → HomeScreen (dashboard + recommendation card)
-//     /pay      → PayScreen (trigger UPI app via intent)
-//     /history  → HistoryScreen (past transactions)
-//     /stats    → StatsScreen (success rate charts)
-// - Sets HomeScreen as the default landing page
-//
-// ============================================================
+import 'package:flutter/material.dart';
+import 'screens/home_screen.dart';
+import 'utils/constants.dart';
 
-// TODO: Import flutter/material.dart
-// TODO: Import screens (home, pay, history, stats)
-// TODO: Import provider package
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const SmartUpiApp());
+}
 
-// TODO: Define main() function
-//   - Call WidgetsFlutterBinding.ensureInitialized()
-//   - Run the app with MultiProvider wrapping SmartUpiApp
+class SmartUpiApp extends StatelessWidget {
+  const SmartUpiApp({Key? key}) : super(key: key);
 
-// TODO: Define SmartUpiApp StatelessWidget
-//   - Return MaterialApp with:
-//       - title: 'Smart UPI Optimizer'
-//       - theme: dark Material 3 theme with custom color scheme
-//       - routes: map of named routes
-//       - home: HomeScreen()
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Smart UPI Optimizer',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: kPrimary),
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
