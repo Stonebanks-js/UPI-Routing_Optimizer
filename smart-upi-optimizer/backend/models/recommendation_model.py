@@ -1,36 +1,48 @@
-"""
-Recommendation Model — Pydantic Schemas
-=========================================
+from uuid import UUID
+from typing import List
+from pydantic import BaseModel, ConfigDict, field_validator
 
-Defines Pydantic schemas for recommendation-related data:
+class RecommendationRequest(BaseModel):
+    """
+    Schema for incoming GET /recommend parameters.
+    Used by the backend to identify the user and filter scoring
+    based on the apps they actually have installed on their device.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True)
 
-1. RecommendationResponse (returned by GET /recommend):
-   - recommended_app: str   — the best app to use right now
-   - score: float           — confidence score (0–100)
-   - reason: str            — human-readable explanation
-   - alternatives: list     — ranked list of other apps with scores
-   - is_peak_hour: bool     — whether the recommendation factors peak traffic
-   - timestamp: datetime
+    user_id: UUID
+    available_apps: List[str]
 
-2. AppScore (individual app scoring details):
-   - upi_app: str
-   - success_rate: float
-   - avg_latency_ms: int
-   - composite_score: float
+    @field_validator("available_apps", mode="before")
+    @classmethod
+    def lowercase_apps(cls, v: list) -> list:
+        """Lowercases all app names passed in the request for standardized matching."""
+        if isinstance(v, list):
+            return [str(app).lower() for app in v]
+        return v
 
-3. RecommendationRecord (full DB row for analytics):
-   - id: UUID
-   - user_id: UUID
-   - recommended_app: str
-   - score: float
-   - reason: str
-   - was_accepted: bool | None
-   - created_at: datetime
-"""
+class AppScore(BaseModel):
+    """
+    Internal model used by the Recommendation Engine.
+    Represents the calculated score and context for a single
+    UPI app route at a specific moment in time.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True)
 
-# TODO: Import BaseModel, Field, UUID4 from pydantic
-# TODO: Import Optional, datetime
+    app_name: str
+    success_rate: float
+    confidence: float
+    is_peak_hour: bool
 
-# TODO: Define AppScore(BaseModel) schema
-# TODO: Define RecommendationResponse(BaseModel) schema
-# TODO: Define RecommendationRecord(BaseModel) schema
+class RecommendationResponse(BaseModel):
+    """
+    Schema for the outgoing recommendation sent back to the Flutter app.
+    Contains the single best suggestion, its confidence rating, a human
+    readable reason, and explicitly lists apps that are currently performing poorly.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    suggested_app: str
+    confidence_score: float
+    reason: str
+    avoid_apps: List[str]

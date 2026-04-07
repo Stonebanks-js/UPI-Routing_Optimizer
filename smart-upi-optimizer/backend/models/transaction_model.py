@@ -1,33 +1,35 @@
-"""
-Transaction Model — Pydantic Schemas
-======================================
+from uuid import UUID
+from typing import Optional, Literal
+from pydantic import BaseModel, ConfigDict, field_validator
 
-Defines Pydantic schemas for transaction-related data:
+class TransactionCreate(BaseModel):
+    """
+    Schema for the incoming POST /log-transaction request body.
+    Used to validate the payload sent by the Flutter application when
+    logging a completed or failed payment attempt.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True)
 
-1. TransactionCreate (request body for POST /log-transaction):
-   - user_id: UUID
-   - upi_app: str          — 'google_pay' | 'phonepe' | 'paytm'
-   - status: str            — 'success' | 'failure' | 'pending'
-   - latency_ms: int        — response time in ms
-   - amount_range: str      — '0-500' | '500-2000' | '2000+'
-   - error_code: str | None — UPI error code if applicable
+    user_id: UUID
+    app_used: Literal["gpay", "phonepe", "paytm"]
+    status: Literal["success", "failure"]
+    latency_ms: Optional[int] = None
 
-2. TransactionResponse (returned after logging):
-   - id: UUID
-   - status: str            — confirmation status ('logged')
-   - timestamp: datetime
+    @field_validator("app_used", "status", mode="before")
+    @classmethod
+    def lowercase_fields(cls, v: str) -> str:
+        """Ensures app_used and status are cleanly lowercased before type checking."""
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
-3. TransactionRecord (full DB row representation):
-   - All fields from TransactionCreate + id, timestamp
-"""
+class TransactionResponse(BaseModel):
+    """
+    Schema for the outgoing response after logging a transaction.
+    Sent back to the Flutter app sequentially confirming the receipt
+    and returning the generated database txn_id.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True)
 
-# TODO: Import BaseModel, Field, UUID4 from pydantic
-# TODO: Import Optional, datetime
-
-# TODO: Define UpiApp enum or Literal type: 'google_pay' | 'phonepe' | 'paytm'
-# TODO: Define TransactionStatus enum or Literal: 'success' | 'failure' | 'pending'
-# TODO: Define AmountRange enum or Literal: '0-500' | '500-2000' | '2000+'
-
-# TODO: Define TransactionCreate(BaseModel) schema
-# TODO: Define TransactionResponse(BaseModel) schema
-# TODO: Define TransactionRecord(BaseModel) schema
+    txn_id: UUID
+    message: str
