@@ -1,69 +1,143 @@
-"""
-Database Queries
-=================
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
-Contains all read/write database functions used by routers and the engine.
-Each function accepts a SQLAlchemy session and returns structured data.
+def create_user(db: Session, device_id: str):
+    """
+    Inserts a user into the users table if their device_id does not exist,
+    otherwise returns the existing user's user_id.
 
-Functions:
------------
-Transactions:
-    insert_transaction(db, txn_data)        — logs a new transaction
-    get_user_transactions(db, user_id, limit) — fetches recent txns for a user
-    get_all_transactions(db, filters)       — fetches txns with optional filters
+    Args:
+        db (Session): The database session.
+        device_id (str): The unique string identifying the user's device.
 
-App Performance:
-    get_app_performance(db, upi_app, time_window) — returns aggregated stats
-    upsert_app_performance(db, perf_data)          — updates performance snapshot
+    Returns:
+        str: The user_id UUID of the created or existing user, or None if an error occurs.
+    """
+    sql = text('''
+        INSERT INTO users (device_id)
+        VALUES (:device_id)
+        ON CONFLICT (device_id) DO UPDATE SET device_id = EXCLUDED.device_id
+        RETURNING user_id;
+    ''')
+    try:
+        result = db.execute(sql, {"device_id": device_id})
+        db.commit()
+        row = result.fetchone()
+        return str(row[0]) if row else None
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"Database error in create_user: {e}")
+        return None
 
-Recommendations:
-    insert_recommendation(db, rec_data)     — logs a recommendation served
-    get_user_recommendations(db, user_id)   — fetches recommendation history
-    update_recommendation_acceptance(db, rec_id, accepted) — feedback loop
+def log_transaction(db: Session, user_id: str, app_used: str, status: str, latency_ms: int):
+    """
+    Logs a UPI payment attempt into the transactions table.
 
-Users:
-    get_or_create_user(db, device_id, display_name) — finds or creates a user
-    get_user_by_id(db, user_id)                     — fetches user by UUID
-"""
+    Args:
+        db (Session): The database session.
+        user_id (str): The UUID of the user making the transaction.
+        app_used (str): The name of the UPI app used (e.g., 'google_pay').
+        status (str): The transaction outcome ('success' or 'failure').
+        latency_ms (int): Latency of the transaction in milliseconds.
 
-# TODO: Import Session from sqlalchemy.orm
-# TODO: Import text from sqlalchemy
-# TODO: Import UUID
+    Returns:
+        bool: True if the log was inserted successfully, False otherwise.
+    """
+    sql = text('''
+        INSERT INTO transactions (user_id, app_used, status, latency_ms)
+        VALUES (:user_id, :app_used, :status, :latency_ms);
+    ''')
+    try:
+        db.execute(sql, {
+            "user_id": user_id,
+            "app_used": app_used,
+            "status": status,
+            "latency_ms": latency_ms
+        })
+        db.commit()
+        return True
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"Database error in log_transaction: {e}")
+        return False
 
-# ── Transaction Queries ──────────────────────────────────────
+def get_recent_transactions(db: Session, app_name: str, minutes: int = 10):
+    """
+    Retrieves all transactions for a specific UPI app within the last N minutes.
 
-# TODO: Define insert_transaction(db, txn_data) -> UUID
-#   - INSERT INTO transactions (...) VALUES (...) RETURNING id
+    Args:
+        db (Session): The database session.
+        app_name (str): The name of the UPI app to query.
+        minutes (int): Time window lookback in minutes (defaults to 10).
 
-# TODO: Define get_user_transactions(db, user_id, limit=50) -> list
-#   - SELECT * FROM transactions WHERE user_id = ... ORDER BY timestamp DESC LIMIT ...
+    Returns:
+        list of dicts: A list containing dictionaries of the recent transaction records,
+                       or an empty list if an error occurs.
+    """
+    sql = text('''
+        SELECT txn_id, user_id, app_used, status, timestamp, latency_ms
+        FROM transactions
+        WHERE app_used = :app_name 
+          AND timestamp >= NOW() - (:minutes * INTERVAL '1 minute')
+        ORDER BY timestamp DESC;
+    ''')
+    try:
+        result = db.execute(sql, {"app_name": app_name, "minutes": minutes})
+        # Map SQL row into a python dict
+        return [dict(row._mapping) for row in result]
+    except SQLAlchemyError as e:
+        print(f"Database error in get_recent_transactions: {e}")
+        return []
 
-# TODO: Define get_all_transactions(db, upi_app=None, status=None) -> list
-#   - SELECT with optional WHERE filters
+def get_all_app_performance(db: Session):
+    """
+    Retrieves the latest aggregated performance rows for all UPI apps.
 
-# ── App Performance Queries ──────────────────────────────────
+    Args:
+        db (Session): The database session.
 
-# TODO: Define get_app_performance(db, upi_app=None, time_window=None) -> list
-#   - SELECT from app_performance with optional filters
+    Returns:
+        list of dicts: A list containing dictionaries of app performance metrics,
+                       or an empty list if an error occurs.
+    """
+    sql = text('''
+        SELECT app_name, success_rate, failure_rate, avg_latency_ms, last_updated
+        FROM app_performance;
+    ''')
+    try:
+        result = db.execute(sql)
+        return [dict(row._mapping) for row in result]
+    except SQLAlchemyError as e:
+        print(f"Database error in get_all_app_performance: {e}")
+        return []
 
-# TODO: Define upsert_app_performance(db, perf_data) -> None
-#   - INSERT ... ON CONFLICT (upi_app, time_window) DO UPDATE
+def save_recommendation(db: Session, user_id: str, suggested_app: str, confidence_score: float):
+    """
+    Records a recommendation provided to a user in the recommendations table.
 
-# ── Recommendation Queries ───────────────────────────────────
+    Args:
+        db (Session): The database session.
+        user_id (str): UUID of the user receiving the recommendation.
+        suggested_app (str): Name of the suggested UPI app.
+        confidence_score (float): The generated confidence score for the route.
 
-# TODO: Define insert_recommendation(db, rec_data) -> UUID
-#   - INSERT INTO recommendations (...) VALUES (...) RETURNING id
-
-# TODO: Define get_user_recommendations(db, user_id, limit=20) -> list
-#   - SELECT * FROM recommendations WHERE user_id = ... ORDER BY created_at DESC
-
-# TODO: Define update_recommendation_acceptance(db, rec_id, accepted) -> None
-#   - UPDATE recommendations SET was_accepted = ... WHERE id = ...
-
-# ── User Queries ─────────────────────────────────────────────
-
-# TODO: Define get_or_create_user(db, device_id, display_name=None) -> dict
-#   - SELECT ... WHERE device_id = ...; if not found, INSERT
-
-# TODO: Define get_user_by_id(db, user_id) -> dict | None
-#   - SELECT * FROM users WHERE id = ...
+    Returns:
+        bool: True if insertion was successful, False otherwise.
+    """
+    sql = text('''
+        INSERT INTO recommendations (user_id, suggested_app, confidence_score)
+        VALUES (:user_id, :suggested_app, :confidence_score);
+    ''')
+    try:
+        db.execute(sql, {
+            "user_id": user_id,
+            "suggested_app": suggested_app,
+            "confidence_score": confidence_score
+        })
+        db.commit()
+        return True
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"Database error in save_recommendation: {e}")
+        return False
