@@ -1,0 +1,68 @@
+# ===========================
+# Python / Backend
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+env/
+.venv/
+.env
+
+# ===========================
+# Flutter / Dart
+# ===========================
+app/.dart_tool/
+app/.packages
+app/.pub/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/local.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/Flutter.podspec
+app/.idea/
+app/*.iml
+
+# ===========================
+# IDE / Editor
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Docker
+# ===========================
+docker-compose.override.yml
+
+# ===========================
+# Environment Variables
+# ===========================
+.env
+.env.local
+.env.production
+backend/.env
+
+# ===========================
+# Misc
+# ===========================
+*.log
+*.pid
+*.seed

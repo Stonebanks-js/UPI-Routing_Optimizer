@@ -1,0 +1,53 @@
+# ============================================================
+# Smart UPI Routing Optimizer — Docker Compose (Local Dev)
+# ============================================================
+# Wires up:
+#   1. PostgreSQL 15 (database)
+#   2. FastAPI backend (Python)
+#
+# Usage:
+#   docker-compose up --build
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: upi_optimizer_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: upi_user
+      POSTGRES_PASSWORD: upi_secret
+      POSTGRES_DB: upi_optimizer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U upi_user -d upi_optimizer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: upi_optimizer_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://upi_user:upi_secret@db:5432/upi_optimizer
+      SECRET_KEY: local-dev-secret-key-change-me
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

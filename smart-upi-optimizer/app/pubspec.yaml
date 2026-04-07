@@ -1,0 +1,50 @@
+# Smart UPI Routing Optimizer — Flutter App
+# ==========================================
+# Android-first Flutter application for UPI routing recommendations.
+
+name: smart_upi_optimizer
+description: >
+  A decision intelligence mobile app that recommends the best-performing
+  UPI app (Google Pay, PhonePe, Paytm) based on real-time success rates.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── UI ───────────────────────────────────────────────────
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.1.0
+  fl_chart: ^0.66.0          # Charts for success rate visualization
+
+  # ── Networking ───────────────────────────────────────────
+  http: ^1.2.0               # HTTP calls to FastAPI backend
+  dio: ^5.4.0                # Advanced HTTP client (interceptors, retries)
+
+  # ── UPI Integration ─────────────────────────────────────
+  url_launcher: ^6.2.0       # Launch UPI apps via Android Intent
+  #upi_india: ^4.0.0         # UPI intent helper (uncomment if needed)
+
+  # ── State Management ────────────────────────────────────
+  provider: ^6.1.0           # Simple state management
+
+  # ── Storage ─────────────────────────────────────────────
+  shared_preferences: ^2.2.0 # Local key-value storage
+
+  # ── Utilities ───────────────────────────────────────────
+  intl: ^0.19.0              # Date/time formatting (IST support)
+  uuid: ^4.2.0               # UUID generation for device IDs
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
