@@ -1,43 +1,43 @@
-// ============================================================
-// TransactionLogger Service
-// ============================================================
-//
-// Logs each UPI payment attempt (success or failure) to the
-// FastAPI backend for performance tracking and analysis.
-//
-// This service is called AFTER the user returns from a UPI app.
-// It captures the outcome and sends it to POST /api/log-transaction.
-//
-// Public API:
-//   TransactionLogger.log({
-//     required String userId,
-//     required String upiApp,
-//     required String status,        // 'success' | 'failure'
-//     required int latencyMs,
-//     required String amountRange,
-//     String? errorCode,
-//   }) → Future<bool>
-//     - Returns true if the transaction was logged successfully
-//     - Returns false if the API call failed (will retry later)
-//
-// Offline handling:
-//   - If the device is offline, the transaction is queued locally
-//     using SharedPreferences and retried on next app launch
-//
-// ============================================================
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import 'api_service.dart';
 
-// TODO: Import services/api_service.dart
-// TODO: Import models/transaction.dart
-// TODO: Import shared_preferences package
+/// Orchestrates local user identification and transaction logging.
+class TransactionLogger {
+  static const String _userIdKey = 'app_user_id';
+  static const _uuid = Uuid();
 
-// TODO: Define TransactionLogger class
+  /// Retrieves the existing user ID from local storage.
+  /// If it does not exist, generates a new one, saves it, and returns it.
+  static Future<String> getOrCreateUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? userId = prefs.getString(_userIdKey);
 
-// TODO: Define static log(...) method
-//   - Build a Transaction object from parameters
-//   - Call ApiService.logTransaction(transaction)
-//   - On failure, queue locally for retry
+      if (userId == null || userId.isEmpty) {
+        userId = _uuid.v4(); // Generate a random UUIDv4
+        await prefs.setString(_userIdKey, userId);
+      }
 
-// TODO: Define static _retryPending() method
-//   - Check SharedPreferences for queued transactions
-//   - Attempt to send each one
-//   - Remove from queue on success
+      return userId;
+    } catch (e) {
+      print('TransactionLogger getOrCreateUserId error: $e');
+      // Fallback in case of exceptions so the app still functions
+      return _uuid.v4(); 
+    }
+  }
+
+  /// High-level function to log a transaction. It securely injects the
+  /// device's user_id before calling the API layer.
+  static Future<bool> logAttempt(
+      String appUsed, String status, int latencyMs) async {
+    try {
+      final String userId = await getOrCreateUserId();
+      return await ApiService.logTransaction(
+          userId, appUsed, status, latencyMs);
+    } catch (e) {
+      print('TransactionLogger logAttempt error: $e');
+      return false;
+    }
+  }
+}
