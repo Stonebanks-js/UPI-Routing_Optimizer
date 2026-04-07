@@ -1,35 +1,22 @@
-"""
-Time Context — Peak Hour Detection
-====================================
+from datetime import datetime, timezone, timedelta
 
-Detects whether the current time falls within UPI peak hours.
+def is_peak_hour() -> bool:
+    """
+    Checks if the current time falls within UPI peak hours in India.
+    Peak hours are defined as 8:00 PM (20:00) to 10:00 PM (22:00) IST.
+    
+    Returns:
+        bool: True if currently in the peak window, False otherwise.
+    """
+    ist = timezone(timedelta(hours=5, minutes=30))
+    current_time_ist = datetime.now(ist)
+    return 20 <= current_time_ist.hour < 22
 
-India-specific context:
-- UPI transaction volume peaks between 8:00 PM – 10:00 PM IST
-- During peak hours, some apps experience higher failure rates
-- The rule engine uses this signal to adjust scoring weights
+def get_time_weight() -> float:
+    """
+    Calculates the recency weight multiplier based on the current time window.
 
-Public API:
-    is_peak_hour() -> bool
-    get_time_window() -> str   # Returns 'peak' | 'off_peak'
-    get_current_ist() -> datetime
-"""
-
-# TODO: Import datetime, timezone, timedelta
-
-# TODO: Define IST timezone offset (UTC+5:30)
-#   IST = timezone(timedelta(hours=5, minutes=30))
-
-# TODO: Define peak hour range
-#   PEAK_START_HOUR = 20  # 8:00 PM IST
-#   PEAK_END_HOUR = 22    # 10:00 PM IST
-
-# TODO: Define get_current_ist() function
-#   - Returns current datetime in IST
-
-# TODO: Define is_peak_hour() function
-#   - Gets current IST hour
-#   - Returns True if PEAK_START_HOUR <= hour < PEAK_END_HOUR
-
-# TODO: Define get_time_window() function
-#   - Returns 'peak' if is_peak_hour() else 'off_peak'
+    Returns:
+        float: 1.5 if currently in peak hours (amplifying recency), 1.0 otherwise.
+    """
+    return 1.5 if is_peak_hour() else 1.0
