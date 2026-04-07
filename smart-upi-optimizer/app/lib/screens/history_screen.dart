@@ -1,37 +1,75 @@
-// ============================================================
-// HistoryScreen — Past Transactions List
-// ============================================================
-//
-// Displays a scrollable list of the user's past UPI payment attempts.
-//
-// Layout:
-// 1. Filter chips at the top: All, Google Pay, PhonePe, Paytm
-// 2. Date range selector (last 7 days, 30 days, all time)
-// 3. ListView of transaction cards, each showing:
-//    - UPI app icon and name
-//    - Status badge (Success ✓ / Failed ✗)
-//    - Latency (e.g., "320ms")
-//    - Amount range
-//    - Timestamp (formatted in IST)
-// 4. Pull-to-refresh to reload from backend
-// 5. Empty state illustration if no transactions yet
-//
-// Data flow:
-// - On load, calls ApiService.getUserTransactions(userId)
-// - Supports local filtering by app name and status
-//
-// ============================================================
+import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
-// TODO: Import flutter/material.dart
-// TODO: Import services (ApiService)
-// TODO: Import models (Transaction)
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({Key? key}) : super(key: key);
 
-// TODO: Define HistoryScreen StatefulWidget
+  @override
+  _HistoryScreenState createState() => _HistoryScreenState();
+}
 
-// TODO: Define _HistoryScreenState
-//   - _transactions: List<Transaction>
-//   - _filterApp: String? — active app filter
-//   - _isLoading: bool
-//   - _fetchTransactions() → loads from API
-//   - _applyFilter(appName) → filters displayed list
-//   - build() → Scaffold with filter chips + ListView.builder
+class _HistoryScreenState extends State<HistoryScreen> {
+  bool _isLoading = true;
+  List<dynamic> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // The instructions say to use /stats/performance for now to fill the list.
+    final data = await ApiService.getStats();
+
+    setState(() {
+      if (data is List) {
+        _history = data;
+      }
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Transaction Logs')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _history.isEmpty
+                ? const Center(child: Text('No transactions yet'))
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: _history.length,
+                    itemBuilder: (context, index) {
+                      final item = _history[index];
+                      final appName = item['app_name'] ?? 'Unknown';
+                      
+                      // Using the available fields structurally. Since stats endpoints return aggregates, 
+                      // we map logic for ✅ / ❌ based on success properties per instructions requirements.
+                      final isSuccess = (item['success_rate'] ?? 0.0) >= 0.5;
+                      final timestamp = item['last_updated'] ?? 'Unknown time';
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          child: Text(appName.substring(0, 1).toUpperCase()),
+                        ),
+                        title: Text(appName),
+                        subtitle: Text(timestamp),
+                        trailing: Text(
+                          isSuccess ? '✅' : '❌',
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    );
+  }
+}

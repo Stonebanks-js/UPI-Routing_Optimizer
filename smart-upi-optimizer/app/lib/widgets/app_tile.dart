@@ -1,32 +1,42 @@
-// ============================================================
-// AppTile Widget
-// ============================================================
-//
-// A tappable tile representing a single UPI app (Google Pay,
-// PhonePe, or Paytm). Used on the HomeScreen and PayScreen.
-//
-// Props (constructor parameters):
-// - appName: String           — 'google_pay' | 'phonepe' | 'paytm'
-// - displayName: String       — human-readable name (e.g., "Google Pay")
-// - isRecommended: bool       — shows a "Recommended" badge if true
-// - isSelected: bool          — highlights the tile when selected
-// - successRate: double?      — optional success rate to display
-// - onTap: VoidCallback       — callback when tile is tapped
-//
-// Visual design:
-// - Rounded rectangle with app brand color as accent
-// - App icon/logo centered
-// - Display name below the icon
-// - Optional "Recommended ★" badge in top-right corner
-// - Selected state: elevated shadow + border highlight
-// - Ripple effect on tap
-//
-// ============================================================
+import 'package:flutter/material.dart';
+import '../utils/constants.dart';
 
-// TODO: Import flutter/material.dart
-// TODO: Import utils/constants.dart for brand colors
+class AppTile extends StatelessWidget {
+  final String appName;
+  final VoidCallback onTap;
+  final bool isSuggested;
 
-// TODO: Define AppTile StatelessWidget
-//   - Constructor with required props
-//   - build() → InkWell wrapping a decorated Container
-//     with icon, name, optional badge, and selection highlight
+  const AppTile({
+    Key? key,
+    required this.appName,
+    required this.onTap,
+    this.isSuggested = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          side: isSuggested
+              ? const BorderSide(color: kGreen, width: 2)
+              : BorderSide(color: Colors.transparent, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: kPrimary.withOpacity(0.2),
+            child: Text(
+              appName.isNotEmpty ? appName.substring(0, 1).toUpperCase() : '?',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          title: Text(appName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          trailing: const Icon(Icons.chevron_right),
+        ),
+      ),
+    );
+  }
+}

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// Global constants for the application
 
 /// Base URL for the FastAPI backend. 10.0.2.2 is used to access localhost from the Android emulator.
@@ -12,3 +14,9 @@ const kUpiPackageNames = {
   'phonepe': 'com.phonepe.app',
   'paytm': 'net.one97.paytm',
 };
+
+// Colors for the UI
+const kGreen = Colors.green;
+const kOrange = Colors.orange;
+const kRed = Colors.red;
+const kPrimary = Colors.blue;

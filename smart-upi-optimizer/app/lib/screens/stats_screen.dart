@@ -1,38 +1,91 @@
-// ============================================================
-// StatsScreen — Success Rate Charts & Analytics
-// ============================================================
-//
-// Displays visual analytics of UPI app performance.
-//
-// Layout:
-// 1. Header: "Performance Analytics"
-// 2. Time window toggle: Peak / Off-Peak / All Day
-// 3. Bar chart (fl_chart): success rate comparison across all 3 apps
-// 4. Line chart: success rate trend over the last 7 days
-// 5. Summary cards for each app:
-//    - Success rate percentage
-//    - Average latency
-//    - Total transactions
-// 6. SuccessRateBar widgets for quick visual comparison
-//
-// Data flow:
-// - On load, calls ApiService.getStats(timeWindow)
-// - Charts rebuild when time window toggle changes
-//
-// ============================================================
+import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../utils/constants.dart';
 
-// TODO: Import flutter/material.dart
-// TODO: Import fl_chart package
-// TODO: Import services (ApiService)
-// TODO: Import widgets (SuccessRateBar)
+class StatsScreen extends StatefulWidget {
+  const StatsScreen({Key? key}) : super(key: key);
 
-// TODO: Define StatsScreen StatefulWidget
+  @override
+  _StatsScreenState createState() => _StatsScreenState();
+}
 
-// TODO: Define _StatsScreenState
-//   - _timeWindow: String — 'all_day' | 'peak' | 'off_peak'
-//   - _stats: List<AppPerformance>
-//   - _isLoading: bool
-//   - _fetchStats() → calls ApiService.getStats(_timeWindow)
-//   - _buildBarChart() → returns fl_chart BarChart widget
-//   - _buildSummaryCards() → returns Row of stat cards
-//   - build() → Scaffold with toggle, charts, and summary cards
+class _StatsScreenState extends State<StatsScreen> {
+  bool _isLoading = true;
+  List<dynamic> _stats = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final data = await ApiService.getStats();
+
+    setState(() {
+      if (data is List) {
+        _stats = data;
+      }
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Performance Dashboard')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: _stats.length,
+                itemBuilder: (context, index) {
+                  final stat = _stats[index];
+                  final String appName = stat['app_name'] ?? 'Unknown';
+                  final double successRate = (stat['success_rate'] ?? 0.0).toDouble();
+                  final double latency = (stat['avg_latency_ms'] ?? 0.0).toDouble();
+
+                  Color cardColor;
+                  if (successRate > 0.7) {
+                    cardColor = kGreen;
+                  } else if (successRate >= 0.4) {
+                    cardColor = kOrange;
+                  } else {
+                    cardColor = kRed;
+                  }
+
+                  final percentage = (successRate * 100).toStringAsFixed(1);
+
+                  return Card(
+                    color: cardColor.withOpacity(0.15),
+                    margin: const EdgeInsets.only(bottom: 16.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appName,
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 12),
+                          Text('Success Rate: $percentage%', style: const TextStyle(fontSize: 16)),
+                          const SizedBox(height: 4),
+                          Text('Avg Latency: ${latency.toStringAsFixed(0)} ms', style: const TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
