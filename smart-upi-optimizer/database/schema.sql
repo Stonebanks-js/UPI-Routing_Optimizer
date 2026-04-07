@@ -1,69 +1,48 @@
 -- ============================================================
 -- Smart UPI Routing Optimizer — Database Schema
 -- ============================================================
--- This file defines the 4 core tables:
---   1. users              — registered app users
---   2. transactions        — every UPI payment attempt logged
---   3. app_performance     — aggregated success metrics per UPI app
---   4. recommendations     — recommendation history per user
---
--- Database: PostgreSQL 15
--- ============================================================
 
--- ── 1. Users ────────────────────────────────────────────────
--- Stores basic user profile information.
--- Each user is identified by a unique UUID.
+-- 1. users
+-- Stores registered users of the app, identified by device ID.
 CREATE TABLE users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    device_id       VARCHAR(255) NOT NULL UNIQUE,
-    display_name    VARCHAR(100),
-    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- ── 2. Transactions ─────────────────────────────────────────
--- Logs every UPI payment attempt with its outcome.
--- No sensitive financial data is stored — only metadata.
+-- 2. transactions
+-- Logs each payment attempt, which app was used, and the outcome.
 CREATE TABLE transactions (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    upi_app         VARCHAR(50) NOT NULL,          -- 'google_pay' | 'phonepe' | 'paytm'
-    status          VARCHAR(20) NOT NULL,           -- 'success' | 'failure' | 'pending'
-    latency_ms      INTEGER,                        -- response time in milliseconds
-    amount_range    VARCHAR(20),                    -- '0-500' | '500-2000' | '2000+' (bucketed, not exact)
-    error_code      VARCHAR(50),                    -- UPI error code if failed (nullable)
-    timestamp       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    txn_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    app_used TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('success', 'failure')),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    latency_ms INTEGER
 );
 
--- ── 3. App Performance ──────────────────────────────────────
--- Aggregated performance snapshot for each UPI app.
--- Updated periodically by the scoring engine.
+-- 3. app_performance
+-- Maintains aggregate statistics on each UPI app's success/failure rates.
 CREATE TABLE app_performance (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    upi_app         VARCHAR(50) NOT NULL,           -- 'google_pay' | 'phonepe' | 'paytm'
-    time_window     VARCHAR(20) NOT NULL,           -- 'peak' | 'off_peak' | 'all_day'
-    success_rate    DECIMAL(5, 2) NOT NULL,         -- percentage (0.00 – 100.00)
-    avg_latency_ms  INTEGER,                        -- average response time
-    total_txns      INTEGER DEFAULT 0,              -- total transactions in window
-    last_updated    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE (upi_app, time_window)
+    app_name TEXT PRIMARY KEY,
+    success_rate FLOAT NOT NULL DEFAULT 0.0,
+    failure_rate FLOAT NOT NULL DEFAULT 0.0,
+    avg_latency_ms FLOAT NOT NULL DEFAULT 0.0,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- ── 4. Recommendations ──────────────────────────────────────
--- Stores every recommendation served to a user.
--- Used for analytics and model feedback loops.
+-- 4. recommendations
+-- Records the recommendations actively provided to users over time.
 CREATE TABLE recommendations (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    recommended_app VARCHAR(50) NOT NULL,           -- the app we suggested
-    score           DECIMAL(5, 2) NOT NULL,         -- confidence score (0–100)
-    reason          TEXT,                            -- human-readable explanation
-    was_accepted    BOOLEAN DEFAULT NULL,            -- did the user follow our suggestion?
-    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    recommendation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    suggested_app TEXT NOT NULL,
+    confidence_score FLOAT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- ── Indexes ─────────────────────────────────────────────────
+-- ============================================================
+-- Indexes
+-- ============================================================
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX idx_transactions_timestamp ON transactions(timestamp);
-CREATE INDEX idx_transactions_upi_app ON transactions(upi_app);
-CREATE INDEX idx_recommendations_user_id ON recommendations(user_id);
