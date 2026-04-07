@@ -1,30 +1,34 @@
-"""
-Stats Router
-=============
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from backend.db.database import get_db
+from backend.db.queries import get_all_app_performance
 
-Handles the GET /stats endpoint.
+router = APIRouter()
 
-Responsibilities:
-- Returns aggregated performance statistics for all UPI apps
-- Supports optional filters: time_window ('peak', 'off_peak', 'all_day'), upi_app
-- Returns success rates, average latency, and total transaction counts
-- Powers the stats/charts screen in the Flutter app
+@router.get(
+    "/performance",
+    summary="Retrieves core aggregate performance tracking",
+    description="Loads all recent row snapshots generating UI visual tables."
+)
+def get_performance_route(db: Session = Depends(get_db)):
+    try:
+        # DB Injection pattern handles fetch without business logic
+        stats = get_all_app_performance(db)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-Response fields:
-- stats (list) — array of AppPerformance objects, each containing:
-    - upi_app (str)
-    - time_window (str)
-    - success_rate (float)
-    - avg_latency_ms (int)
-    - total_txns (int)
-"""
-
-# TODO: Import APIRouter from fastapi
-# TODO: Import DB query functions from db/
-
-# TODO: Create router = APIRouter(prefix="/stats", tags=["Statistics"])
-
-# TODO: Define GET "/" endpoint
-#   - Accept optional query params: upi_app, time_window
-#   - Call db.queries.get_app_performance(filters)
-#   - Return list of performance records
+@router.get(
+    "/health",
+    summary="Root backend health check",
+    description="Fast path verifying connection uptime and backend environment setup."
+)
+def get_health_route():
+    try:
+        return {
+            "status": "ok", 
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))

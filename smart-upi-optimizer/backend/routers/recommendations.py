@@ -1,31 +1,43 @@
-"""
-Recommendations Router
-=======================
+import uuid
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy.orm import Session
+from backend.db.database import get_db
+from backend.engine.rule_engine import get_recommendation
+from backend.models.recommendation_model import RecommendationResponse
 
-Handles the GET /recommend endpoint.
+router = APIRouter()
 
-Responsibilities:
-- Accepts a user_id as a query parameter
-- Invokes the recommendation engine to score each UPI app
-- Returns the top-recommended app with a confidence score and human-readable reason
-- Logs the recommendation to the database for feedback tracking
+@router.get(
+    "/suggest",
+    summary="Suggest the best installed UPI app",
+    description="Scores provided installed apps according to recent real-time latency and transaction success logic.",
+    response_model=RecommendationResponse
+)
+def suggest_route(
+    user_id: uuid.UUID,
+    available_apps: str = Query(..., description="Comma separated list of installed apps e.g. gpay,phonepe"),
+    db: Session = Depends(get_db)
+):
+    try:
+        # 1. Parse string into List[str] appropriately avoiding whitespaces and blanks
+        parsed_apps = [app.strip().lower() for app in available_apps.split(",") if app.strip()]
+        
+        # 2. Validation bounds tracking proper literals
+        permitted_apps = {"gpay", "phonepe", "paytm"}
+        for app in parsed_apps:
+            if app not in permitted_apps:
+                raise ValueError(f"Invalid app identified: {app}. Allowed values are: {permitted_apps}")
+                
+        if not parsed_apps:
+            raise ValueError("No available apps properly provided for scoring")
 
-Response fields:
-- recommended_app (str)  — best app to use right now
-- score (float)          — confidence score (0–100)
-- reason (str)           — why this app was recommended
-- alternatives (list)    — ranked list of other apps with their scores
-"""
+        # 3. Request logic via internal Engine
+        response = get_recommendation(user_id=user_id, available_apps=parsed_apps, db=db)
+        
+        # 4. Standard completion block
+        return response
 
-# TODO: Import APIRouter from fastapi
-# TODO: Import recommendation Pydantic model from models/
-# TODO: Import rule_engine from engine/
-# TODO: Import DB query functions from db/
-
-# TODO: Create router = APIRouter(prefix="/recommend", tags=["Recommendations"])
-
-# TODO: Define GET "/" endpoint
-#   - Accept user_id as query param
-#   - Call engine.rule_engine.get_recommendation(user_id)
-#   - Log recommendation to DB via db.queries.insert_recommendation(...)
-#   - Return RecommendationResponse schema
+    except ValueError as val_e:
+        raise HTTPException(status_code=422, detail=str(val_e))
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))

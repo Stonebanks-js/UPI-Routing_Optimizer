@@ -1,31 +1,44 @@
-"""
-Transactions Router
-====================
+import uuid
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from backend.db.database import get_db
+from backend.db.queries import log_transaction, save_recommendation
+from backend.models.transaction_model import TransactionCreate, TransactionResponse
 
-Handles the POST /log-transaction endpoint.
+router = APIRouter()
 
-Responsibilities:
-- Receives transaction metadata from the Flutter app after each UPI payment attempt
-- Validates the incoming payload using Pydantic schemas
-- Persists the transaction record to the PostgreSQL database
-- Returns a confirmation response with the transaction ID
+@router.post(
+    "/log",
+    summary="Log a UPI transaction attempt",
+    description="Records the outcome of a UPI payment across integrated routing apps.",
+    response_model=TransactionResponse
+)
+def log_transaction_route(payload: TransactionCreate, db: Session = Depends(get_db)):
+    try:
+        success = log_transaction(
+            db=db,
+            user_id=str(payload.user_id),
+            app_used=payload.app_used,
+            status=payload.status,
+            latency_ms=payload.latency_ms or 0
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Database insertion failed.")
 
-Request body fields:
-- user_id (UUID)        — the user who made the attempt
-- upi_app (str)         — which app was used ('google_pay', 'phonepe', 'paytm')
-- status (str)          — outcome ('success', 'failure', 'pending')
-- latency_ms (int)      — how long the transaction took
-- amount_range (str)    — bucketed amount ('0-500', '500-2000', '2000+')
-- error_code (str|None) — UPI error code if failed
-"""
+        # Optionally log the recommendation impact tracking footprint
+        save_recommendation(
+            db=db,
+            user_id=str(payload.user_id),
+            suggested_app=payload.app_used,
+            confidence_score=0.0
+        )
 
-# TODO: Import APIRouter from fastapi
-# TODO: Import transaction Pydantic model from models/
-# TODO: Import DB query functions from db/
-
-# TODO: Create router = APIRouter(prefix="/log-transaction", tags=["Transactions"])
-
-# TODO: Define POST "/" endpoint
-#   - Accept TransactionCreate schema in request body
-#   - Call db.queries.insert_transaction(...)
-#   - Return { "id": ..., "status": "logged" }
+        return TransactionResponse(
+            txn_id=uuid.uuid4(),  # Generic return identifier tracking
+            message="Transaction logged successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
